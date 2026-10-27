@@ -1,0 +1,44 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: workwise
+      POSTGRES_PASSWORD: workwise
+      POSTGRES_DB: workwise
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U workwise -d workwise']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    build: ./server
+    environment:
+      DATABASE_URL: postgresql+psycopg://workwise:workwise@db:5432/workwise
+      SECRET_KEY: ${SECRET_KEY:-compose-dev-secret-change-me}
+      CORS_ORIGINS: http://localhost:8080,http://127.0.0.1:8080
+      UPLOAD_DIR: /app/uploads
+      ENVIRONMENT: docker
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - '8000:8000'
+    restart: unless-stopped
+
+  web:
+    build: ./client
+    depends_on:
+      - api
+    ports:
+      - '8080:80'
+    restart: unless-stopped
+
+volumes:
+  db-data:
+  uploads:
